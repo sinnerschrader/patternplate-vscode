@@ -1,22 +1,54 @@
 {
     "name": "patternplate-vscode",
-    "displayName": "patternplate-vscode",
-    "description": "Declares json-schema validation for pattenplate pattern.json files",
-    "version": "0.1.0",
+    "displayName": "patternplate VS Code Extension",
+    "description": "patternplate tooling support für VS Code",
+    "version": "0.2.0",
     "publisher": "SinnerSchrader",
     "engines": {
         "vscode": "^1.0.0"
     },
+    "main": "./out/extension",
     "categories": [
         "Other"
     ],
+	"activationEvents": [
+		"onCommand:patternplate.showDemo",
+		"onCommand:patternplate.showDemoToSide"
+	],
     "contributes": {
         "jsonValidation": [
             {
                 "fileMatch": "pattern.json",
                 "url": "http://json.schemastore.org/pattern"
             }
-        ]
+        ],
+		"commands": [
+			{
+				"command": "patternplate.showDemo",
+				"title": "Show Demo",
+				"category": "patternplate"
+			},
+			{
+				"command": "patternplate.showDemoToSide",
+				"title": "Show Demo to the side",
+				"category": "patternplate"
+			}
+		],
+		"menus": {
+			"editor/title": [
+				{
+					"command": "patternplate.showDemo",
+					"alt": "patternplate.showDemoToSide",
+					"group": "navigation"
+				}
+			],
+			"explorer/context": [
+				{
+					"command": "patternplate.showDemo",
+					"group": "navigation"
+				}
+			]
+		}
     },
     "scripts": {
         "vscode:prepublish": "node ./node_modules/vscode/bin/compile",
