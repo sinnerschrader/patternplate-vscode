@@ -8,7 +8,7 @@
         "vscode": "^1.0.0"
     },
     "main": "./out/extension",
-    "icon": "icon/logo.png",
+    "icon": "icon/logo.svg",
     "homepage": "https://github.com/sinnerschrader/patternplate-vscode",
     "repository": {
         "type": "git",
@@ -29,6 +29,11 @@
             }
         ],
         "commands": [
+            {
+                "command": "patternplate.showConsole",
+                "title": "Show Console",
+                "category": "patternplate"
+            },
             {
                 "command": "patternplate.showDemo",
                 "title": "Show Demo",

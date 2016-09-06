@@ -10,6 +10,8 @@ editor or in a separate tab.
 ### 0.3.0
 
 * Add extension points for opening demo to editor context menu
+* Add patternplate console output
+* Add statusbar entry
 
 ### 0.2.0
 

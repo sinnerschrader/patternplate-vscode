@@ -28,9 +28,29 @@ export function activate(context: vscode.ExtensionContext) {
 	// vscode.workspace.onDidChangeConfiguration(() =>
 		// vscode.workspace.textDocuments.forEach(document => updateDemo(document, provider)));
 
+
+	const channel = vscode.window.createOutputChannel('patternplate')
+	context.subscriptions.push(channel);
+	disposable = vscode.commands.registerCommand('patternplate.showConsole', () => {
+		channel.show(true);
+	});
+	context.subscriptions.push(disposable);
+
+	const bar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 0);
+	bar.text = 'patternplate';
+	bar.command = 'patternplate.showConsole';
+	context.subscriptions.push(bar);
+	bar.show();
+
 	console.log(`Starting patternplate in ${vscode.workspace.rootPath}`);
 	patternplate = execa('node', ['--harmony', './node_modules/.bin/patternplate', 'start', '--server.port', port], {
 		cwd: vscode.workspace.rootPath
+	});
+	patternplate.stdout.on('data', data => {
+		channel.appendLine(data.toString().replace('\n', ''));
+	});
+	patternplate.stderr.on('data', data => {
+		channel.appendLine(data.toString().replace('\n', ''));
 	});
 	patternplate.catch(error => {
 		console.error(error);
@@ -47,13 +67,15 @@ export function deactivate() {
 }
 
 function updateDemo(document: vscode.TextDocument, provider: PatternplateDemoContentProvider): void {
+	console.log('check upd');
 	if (isPatternFile(document)) {
+		console.log('do upd');
 		provider.update(getPatternplateDemoUri(document.uri));
 	}
 }
 
 function isPatternFile(document: vscode.TextDocument): boolean {
-	const folder = path.basename(document.uri.fsPath);
+	const folder = path.dirname(document.uri.fsPath);
 	const hasPatternManifest = fs.existsSync(path.join(folder, 'pattern.json'));
 	const patternId = document.uri.fsPath.match(/.*\/patterns\/([^\/]+\/[^\/]+)\/.*/);
 	return hasPatternManifest && patternId && document.uri.scheme !== 'patternplate-demo';
