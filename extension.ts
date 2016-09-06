@@ -1,4 +1,5 @@
 'use strict';
+import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import * as http from 'http';
@@ -7,6 +8,7 @@ import * as execa from 'execa';
 
 let patternplate: any;
 const port = '1337';
+const patternplateBase = `http://localhost:${port}`;
 
 export function activate(context: vscode.ExtensionContext) {
 	const provider = new PatternplateDemoContentProvider(context);
@@ -20,19 +22,11 @@ export function activate(context: vscode.ExtensionContext) {
 		(uri: vscode.Uri) => showDemo(uri, true));
 	context.subscriptions.push(disposable);
 
-	vscode.workspace.onDidSaveTextDocument(document => {
-		updateDemo(document, provider);
-	});
-	vscode.workspace.onDidChangeTextDocument(event => {
-		updateDemo(event.document, provider);
-	});
-	vscode.workspace.onDidChangeConfiguration(() => {
-		vscode.workspace.textDocuments.forEach(document => {
-			if (document.uri.scheme === 'patternplate-demo') {
-				provider.update(document.uri);
-			}
-		});
-	});
+	vscode.workspace.onDidSaveTextDocument(document => updateDemo(document, provider));
+	// Note: Currently patternplate support only saved documents
+	// vscode.workspace.onDidChangeTextDocument(event => updateDemo(event.document, provider));
+	// vscode.workspace.onDidChangeConfiguration(() =>
+		// vscode.workspace.textDocuments.forEach(document => updateDemo(document, provider)));
 
 	console.log(`Starting patternplate in ${vscode.workspace.rootPath}`);
 	patternplate = execa('node', ['--harmony', './node_modules/.bin/patternplate', 'start', '--server.port', port], {
@@ -40,7 +34,7 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 	patternplate.catch(error => {
 		console.error(error);
-		vscode.window.showErrorMessage(error);
+		vscode.window.showErrorMessage(error.message);
 	});
 }
 
@@ -53,13 +47,14 @@ export function deactivate() {
 }
 
 function updateDemo(document: vscode.TextDocument, provider: PatternplateDemoContentProvider): void {
-	if (isPatternplateDemo(document)) {
+	if (isPatternFile(document)) {
 		provider.update(getPatternplateDemoUri(document.uri));
 	}
 }
 
-function isPatternplateDemo(document: vscode.TextDocument) {
-	return document.uri.scheme !== 'patternplate-demo';
+function isPatternFile(document: vscode.TextDocument) {
+	const patternId = document.uri.fsPath.match(/.*\/patterns\/([^\/]+\/[^\/]+)\/.*/);
+	return patternId && document.uri.scheme !== 'patternplate-demo';
 }
 
 function getPatternplateDemoUri(uri: vscode.Uri): vscode.Uri {
@@ -83,12 +78,22 @@ function showDemo(uri: vscode.Uri, sideBySide: boolean = false): Thenable<any> {
 		return;
 	}
 	const demoUri = getPatternplateDemoUri(resource);
-	return vscode.commands.executeCommand('vscode.previewHtml', demoUri,
-			getViewColumn(sideBySide), `Demo '${demoUri.query}'`)
-		.then(success => { }, error => {
-			console.warn(error);
-			vscode.window.showErrorMessage(error);
-		});
+	return new Promise((resolve, reject) => {
+		fs.readFile(path.join(demoUri.fsPath, 'pattern.json'), (err, data) => {
+			if (err) {
+				return reject(err);
+			}
+			resolve(JSON.parse(data.toString()));
+		})})
+	.then((patternManifest: any) => {
+		const name = patternManifest.displayName || patternManifest.name || demoUri.query;
+		return vscode.commands.executeCommand(
+			'vscode.previewHtml', demoUri, getViewColumn(sideBySide), `${name} Demo`);
+	})
+	.catch(error => {
+		console.error(error);
+		vscode.window.showErrorMessage(error);
+	});
 }
 
 function getViewColumn(sideBySide: boolean): vscode.ViewColumn {
@@ -114,50 +119,11 @@ class PatternplateDemoContentProvider implements vscode.TextDocumentContentProvi
 
 	private waiting: boolean = false;
 
-	private renderer: any;
+	private renderer: PatternRenderer;
 
 	constructor(private context: vscode.ExtensionContext) {
 		this.context = context;
-		this.renderer = this.createRenderer();
-	}
-
-	private createRenderer() {
-		let firstRender = true;
-		return {
-			render(patternId: string) {
-				return new Promise(resolve => {
-					if (firstRender) {
-						firstRender = false;
-						setTimeout(() => {
-							resolve();
-						}, 8000);
-					} else {
-						resolve();
-					}
-				})
-				.then(() => {
-					return new Promise(resolve => {
-						const base = `http://localhost:${port}`;
-						const options: any = url.parse(`${base}/demo/${patternId}`);
-						if (!options.headers) {
-							options.headers = {};
-						}
-						options.headers['Accept'] = 'text/html';
-
-						http.get(options, res => {
-							let body = '';
-							res.on('data', (data: any) => {
-								body += data.toString();
-							});
-							res.on('end', () => {
-								resolve(body.replace(/<head>/, `<head><base href="${base}/">`));
-							});
-							res.resume();
-						});
-					});
-				});
-			}
-		};
+		this.renderer = new PatternRenderer();
 	}
 
 	public update(uri: vscode.Uri): void {
@@ -166,7 +132,7 @@ class PatternplateDemoContentProvider implements vscode.TextDocumentContentProvi
 			setTimeout(() => {
 				this.waiting = false;
 				this._onDidChange.fire(uri);
-			}, 300);
+			}, 150);
 		}
 	}
 
@@ -178,4 +144,78 @@ class PatternplateDemoContentProvider implements vscode.TextDocumentContentProvi
 		return this.renderer.render(uri.query);
 	}
 
+}
+
+class PatternRenderer {
+
+	private firstRender = true;
+
+	private retries = 0;
+
+	public render(patternId: string): Promise<string> {
+		return Promise.resolve()
+			.then(() => {
+				return this.loadPatternFile(`${patternplateBase}/demo/${patternId}`, 'text/html')
+					.then(body => {
+						// Inline the CSS (vscode does not reload it on changes)
+						const cssPath = body.match(/<link rel="stylesheet" href="([^"]+)">/);
+						return this.loadPatternFile(`${patternplateBase}${cssPath[1]}`, 'text/css')
+							.then(css => {
+								this.firstRender = false;
+								const html = body
+									.replace(/<link rel="stylesheet" href="([^"]+)">/, `
+										<style type="text/css">
+											${css}
+										</style>
+									`)
+									// Set default background
+									.replace(/<head>/, `
+										<head>
+											<base href="${patternplateBase}/">
+											<style type="text/css">
+												body {
+													background-color: #fff;
+												}
+											</style>
+									`);
+								return html;
+							});
+					});
+			})
+			.catch(error => {
+				if (this.firstRender && this.retries < 10) {
+					this.retries++;
+					return new Promise(resolve => {
+						setTimeout(() => {
+							resolve(this.render(patternId));
+						}, 1000);
+					});
+				}
+				throw error;
+			});
+	}
+
+	private loadPatternFile(fileUrl: string, mimeType: string): Promise<string> {
+		console.log(`loading pattern file ${fileUrl} of type ${mimeType}`);
+		return new Promise((resolve, reject) => {
+			const options: any = url.parse(fileUrl);
+			if (!options.headers) {
+				options.headers = {};
+			}
+			options.headers['Accept'] = mimeType;
+
+			http.get(options, res => {
+				let body = '';
+				res.on('data', (data: any) => {
+					body += data.toString();
+				});
+				res.on('end', () => {
+					resolve(body);
+				});
+				res.resume();
+			}).on('error', (e) => {
+				reject(e);
+			});
+		});
+	}
 }
