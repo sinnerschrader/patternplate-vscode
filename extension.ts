@@ -1,4 +1,5 @@
 'use strict';
+import 'babel-polyfill';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
@@ -6,9 +7,8 @@ import * as http from 'http';
 import * as url from 'url';
 import * as execa from 'execa';
 
-let patternplate: any;
-const port = '1337';
-const patternplateBase = `http://localhost:${port}`;
+let patternplateApp: any;
+let patternplateBase: string;
 
 export function activate(context: vscode.ExtensionContext) {
 	const provider = new PatternplateDemoContentProvider(context);
@@ -36,34 +36,48 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 	context.subscriptions.push(disposable);
 
+	disposable = vscode.commands.registerCommand('patternplate.open', () => {
+		if (patternplateBase) {
+			vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(patternplateBase));
+		}
+	});
+	context.subscriptions.push(disposable);
+
 	const bar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 0);
 	bar.text = 'patternplate';
-	bar.command = 'patternplate.showConsole';
+	bar.command = 'patternplate.open';
 	context.subscriptions.push(bar);
 	bar.show();
 
-	console.log(`Starting patternplate in ${vscode.workspace.rootPath}`);
-	patternplate = execa('node', ['--harmony', './node_modules/.bin/patternplate', 'start', '--server.port', port], {
-		cwd: vscode.workspace.rootPath
-	});
-	patternplate.stdout.on('data', data => {
-		channel.appendLine(data.toString().replace('\n', ''));
-	});
-	patternplate.stderr.on('data', data => {
-		channel.appendLine(data.toString().replace('\n', ''));
-	});
-	patternplate.catch(error => {
-		console.error(error);
-		vscode.window.showErrorMessage(error.message);
-	});
+	startPatternplate(channel);
 }
 
 export function deactivate() {
-	if (patternplate) {
-		console.log('Stopping patternplate');
-		patternplate.kill();
-		patternplate = undefined;
-	}
+}
+
+function startPatternplate(channel: vscode.OutputChannel): void {
+	console.log(`Starting patternplate in ${vscode.workspace.rootPath}`);
+	process.chdir(vscode.workspace.rootPath);
+	const patternplatePath = path.join(vscode.workspace.rootPath, 'node_modules', 'patternplate') || 'patternplate';
+	const patternplate = require(patternplatePath);
+	patternplate({
+		mode: 'server'
+	}).then(app => {
+		patternplateApp = app;
+
+		// set and freeze logger
+		patternplateApp.log.deploy(new Logger(channel));
+		patternplateApp.log.deploy = function() {}
+
+		return patternplateApp.start()
+			.then(() => app);
+	}).then(app => {
+		const { host, port } = app.configuration.server;
+		patternplateBase = `http://${host}:${port}`;
+	}).catch(error => {
+		console.error(error);
+		vscode.window.showErrorMessage(error.message);
+	});
 }
 
 function updateDemo(document: vscode.TextDocument, provider: PatternplateDemoContentProvider): void {
@@ -240,4 +254,35 @@ class PatternRenderer {
 			});
 		});
 	}
+}
+
+class Logger {
+
+	constructor(private channel: vscode.OutputChannel) {
+	}
+
+	log(method, ...args) {
+		this.channel.appendLine(`${method} ${args.join(' ')}`);
+	}
+
+	error(...args) {
+		this.log('error', ...args);
+	}
+
+	warn(...args) {
+		this.log('warn', ...args);
+	}
+
+	info(...args) {
+		this.log('info', ...args);
+	}
+
+	debug(...args) {
+		this.log('debug', ...args);
+	}
+
+	silly(...args) {
+		this.log('silly', ...args);
+	}
+
 }

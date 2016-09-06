@@ -12,6 +12,8 @@ editor or in a separate tab.
 * Add extension points for opening demo to editor context menu
 * Add patternplate console output
 * Add statusbar entry
+* Start patternplate on 'non-fixed' port
+* Open started patternplate by statusbar entry
 
 ### 0.2.0
 
