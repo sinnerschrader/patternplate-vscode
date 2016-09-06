@@ -52,9 +52,11 @@ function updateDemo(document: vscode.TextDocument, provider: PatternplateDemoCon
 	}
 }
 
-function isPatternFile(document: vscode.TextDocument) {
+function isPatternFile(document: vscode.TextDocument): boolean {
+	const folder = path.basename(document.uri.fsPath);
+	const hasPatternManifest = fs.existsSync(path.join(folder, 'pattern.json'));
 	const patternId = document.uri.fsPath.match(/.*\/patterns\/([^\/]+\/[^\/]+)\/.*/);
-	return patternId && document.uri.scheme !== 'patternplate-demo';
+	return hasPatternManifest && patternId && document.uri.scheme !== 'patternplate-demo';
 }
 
 function getPatternplateDemoUri(uri: vscode.Uri): vscode.Uri {

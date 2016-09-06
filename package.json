@@ -45,13 +45,27 @@
                 {
                     "command": "patternplate.showDemo",
                     "alt": "patternplate.showDemoToSide",
-                    "group": "navigation"
+                    "group": "patternplate"
+                }
+            ],
+            "editor/context": [
+                {
+                    "command": "patternplate.showDemo",
+                    "group": "patternplate"
+                },
+                {
+                    "command": "patternplate.showDemoToSide",
+                    "group": "patternplate"
                 }
             ],
             "explorer/context": [
                 {
                     "command": "patternplate.showDemo",
-                    "group": "navigation"
+                    "group": "patternplate"
+                },
+                {
+                    "command": "patternplate.showDemoToSide",
+                    "group": "patternplate"
                 }
             ]
         }
