@@ -1,4 +1,5 @@
 {
+<<<<<<< Updated upstream
     "name": "patternplate-vscode",
     "displayName": "patternplate-vscode",
     "description": "Declares json-schema validation for pattenplate pattern.json files",
@@ -9,6 +10,35 @@
     },
     "categories": [
         "Other"
+=======
+  "name": "patternplate-vscode",
+  "displayName": "patternplate VS Code Extension",
+  "description": "patternplate tooling support für VS Code",
+  "version": "0.2.0",
+  "publisher": "SinnerSchrader",
+  "engines": {
+    "vscode": "^1.0.0"
+  },
+  "main": "./out/extension",
+  "homepage": "https://github.com/sinnerschrader/patternplate-vscode",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sinnerschrader/patternplate-vscode.git"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:patternplate.showDemo",
+    "onCommand:patternplate.showDemoToSide"
+  ],
+  "contributes": {
+    "jsonValidation": [
+      {
+        "fileMatch": "pattern.json",
+        "url": "http://json.schemastore.org/pattern"
+      }
+>>>>>>> Stashed changes
     ],
     "contributes": {
         "jsonValidation": [
