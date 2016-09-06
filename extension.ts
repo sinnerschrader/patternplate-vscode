@@ -67,9 +67,7 @@ export function deactivate() {
 }
 
 function updateDemo(document: vscode.TextDocument, provider: PatternplateDemoContentProvider): void {
-	console.log('check upd');
 	if (isPatternFile(document)) {
-		console.log('do upd');
 		provider.update(getPatternplateDemoUri(document.uri));
 	}
 }
