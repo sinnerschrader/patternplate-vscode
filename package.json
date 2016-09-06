@@ -2,13 +2,13 @@
     "name": "patternplate-vscode",
     "displayName": "patternplate-vscode",
     "description": "Declares json-schema validation for pattenplate pattern.json files",
-    "version": "0.2.0",
+    "version": "0.2.1",
     "publisher": "SinnerSchrader",
     "engines": {
         "vscode": "^1.0.0"
     },
     "main": "./out/extension",
-    "icon": "./logo.png",
+    "icon": "./icon/logo.png",
     "homepage": "https://github.com/sinnerschrader/patternplate-vscode",
     "repository": {
         "type": "git",
