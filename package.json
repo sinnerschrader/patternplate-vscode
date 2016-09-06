@@ -1,20 +1,8 @@
 {
-<<<<<<< Updated upstream
-    "name": "patternplate-vscode",
-    "displayName": "patternplate-vscode",
-    "description": "Declares json-schema validation for pattenplate pattern.json files",
-    "version": "0.1.0",
-    "publisher": "SinnerSchrader",
-    "engines": {
-        "vscode": "^1.0.0"
-    },
-    "categories": [
-        "Other"
-=======
   "name": "patternplate-vscode",
-  "displayName": "patternplate VS Code Extension",
-  "description": "patternplate tooling support für VS Code",
-  "version": "0.2.0",
+  "displayName": "patternplate-vscode",
+  "description": "Declares json-schema validation for pattenplate pattern.json files",
+  "version": "0.1.0",
   "publisher": "SinnerSchrader",
   "engines": {
     "vscode": "^1.0.0"
@@ -38,23 +26,45 @@
         "fileMatch": "pattern.json",
         "url": "http://json.schemastore.org/pattern"
       }
->>>>>>> Stashed changes
     ],
-    "contributes": {
-        "jsonValidation": [
-            {
-                "fileMatch": "pattern.json",
-                "url": "http://json.schemastore.org/pattern"
-            }
-        ]
-    },
-    "scripts": {
-        "vscode:prepublish": "node ./node_modules/vscode/bin/compile",
-        "compile": "node ./node_modules/vscode/bin/compile -watch -p ./",
-        "postinstall": "node ./node_modules/vscode/bin/install"
-    },
-    "devDependencies": {
-        "typescript": "^1.8.5",
-        "vscode": "^0.11.0"
+    "commands": [
+      {
+        "command": "patternplate.showDemo",
+        "title": "Show Demo",
+        "category": "patternplate"
+      },
+      {
+        "command": "patternplate.showDemoToSide",
+        "title": "Show Demo to the side",
+        "category": "patternplate"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "patternplate.showDemo",
+          "alt": "patternplate.showDemoToSide",
+          "group": "navigation"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "patternplate.showDemo",
+          "group": "navigation"
+        }
+      ]
     }
+  },
+  "scripts": {
+    "vscode:prepublish": "node ./node_modules/vscode/bin/compile",
+    "compile": "node ./node_modules/vscode/bin/compile -watch -p ./",
+    "postinstall": "node ./node_modules/vscode/bin/install"
+  },
+  "dependencies": {
+    "execa": "^0.4.0"
+  },
+  "devDependencies": {
+    "typescript": "^1.8.5",
+    "vscode": "^0.11.0"
+  }
 }

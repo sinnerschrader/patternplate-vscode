@@ -1,0 +1,17 @@
+[*]
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = tab
+
+[*.md]
+indent_style = space
+trim_trailing_whitespace = false
+
+[{.eslintrc,package.json,marathon.json,pom.xml,**/form-definitions/**.json}]
+indent_style = space
+indent_size = 2
+
+[{wdio.conf.js,wdio.*.conf.js}]
+indent_style = space
+indent_size = 4

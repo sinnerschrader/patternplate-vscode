@@ -5,6 +5,12 @@ This is based on the jsonschema file for pattern.json files.
 
 ## Release Notes
 
+### 0.2.0
+
+Rendering demos while editing
+
+![asdf](./vscode-patternplate-demo.png)
+
 ### 0.1.0
 
 Initial release of patternplate-vscode
