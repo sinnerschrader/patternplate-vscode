@@ -5,13 +5,24 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import * as http from 'http';
 import * as url from 'url';
+import { Logger } from './logger';
+import { createAdapter, PatternplateAdapter } from './patternplate-adapter';
 
-let patternplateApp: any;
-let patternplateBase: string;
+let patternplateAdapter: PatternplateAdapter;
 
 export function activate(context: vscode.ExtensionContext) {
-	const provider = new PatternplateDemoContentProvider(context);
-	let disposable = vscode.workspace.registerTextDocumentContentProvider('patternplate-demo', provider);
+	const channel = vscode.window.createOutputChannel('patternplate')
+	context.subscriptions.push(channel);
+	let disposable = vscode.commands.registerCommand('patternplate.showConsole', () => {
+		channel.show(true);
+	});
+	context.subscriptions.push(disposable);
+
+	patternplateAdapter = createAdapter(new Logger(channel));
+	patternplateAdapter.start();
+
+	const provider = new PatternplateDemoContentProvider(patternplateAdapter);
+	disposable = vscode.workspace.registerTextDocumentContentProvider('patternplate-demo', provider);
 	context.subscriptions.push(disposable);
 
 	disposable = vscode.commands.registerCommand('patternplate.showDemo', showDemo);
@@ -27,17 +38,9 @@ export function activate(context: vscode.ExtensionContext) {
 	// vscode.workspace.onDidChangeConfiguration(() =>
 		// vscode.workspace.textDocuments.forEach(document => updateDemo(document, provider)));
 
-
-	const channel = vscode.window.createOutputChannel('patternplate')
-	context.subscriptions.push(channel);
-	disposable = vscode.commands.registerCommand('patternplate.showConsole', () => {
-		channel.show(true);
-	});
-	context.subscriptions.push(disposable);
-
 	disposable = vscode.commands.registerCommand('patternplate.open', () => {
-		if (patternplateBase) {
-			vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(patternplateBase));
+		if (patternplateAdapter && patternplateAdapter.isStarted()) {
+			vscode.commands.executeCommand('vscode.open', patternplateAdapter.uri);
 		}
 	});
 	context.subscriptions.push(disposable);
@@ -47,36 +50,13 @@ export function activate(context: vscode.ExtensionContext) {
 	bar.command = 'patternplate.open';
 	context.subscriptions.push(bar);
 	bar.show();
-
-	startPatternplate(channel);
 }
 
 export function deactivate() {
-}
-
-function startPatternplate(channel: vscode.OutputChannel): void {
-	console.log(`Starting patternplate in ${vscode.workspace.rootPath}`);
-	process.chdir(vscode.workspace.rootPath);
-	const patternplatePath = path.join(vscode.workspace.rootPath, 'node_modules', 'patternplate') || 'patternplate';
-	const patternplate = require(patternplatePath);
-	patternplate({
-		mode: 'server'
-	}).then(app => {
-		patternplateApp = app;
-
-		// set and freeze logger
-		patternplateApp.log.deploy(new Logger(channel));
-		patternplateApp.log.deploy = function() {}
-
-		return patternplateApp.start()
-			.then(() => app);
-	}).then(app => {
-		const { host, port } = app.configuration.server;
-		patternplateBase = `http://${host}:${port}`;
-	}).catch(error => {
-		console.error(error);
-		vscode.window.showErrorMessage(error.message);
-	});
+	if (patternplateAdapter) {
+		patternplateAdapter.stop();
+		patternplateAdapter = undefined;
+	}
 }
 
 function updateDemo(document: vscode.TextDocument, provider: PatternplateDemoContentProvider): void {
@@ -154,11 +134,10 @@ class PatternplateDemoContentProvider implements vscode.TextDocumentContentProvi
 
 	private waiting: boolean = false;
 
-	private renderer: PatternRenderer;
+	private patternplateAdapter: PatternplateAdapter;
 
-	constructor(private context: vscode.ExtensionContext) {
-		this.context = context;
-		this.renderer = new PatternRenderer();
+	constructor(patternplateAdapter: PatternplateAdapter) {
+		this.patternplateAdapter = patternplateAdapter;
 	}
 
 	public update(uri: vscode.Uri): void {
@@ -176,112 +155,10 @@ class PatternplateDemoContentProvider implements vscode.TextDocumentContentProvi
 	}
 
 	public provideTextDocumentContent(uri: vscode.Uri, token: vscode.CancellationToken): string | Thenable<string> {
-		return this.renderer.render(uri.query);
-	}
-
-}
-
-class PatternRenderer {
-
-	private firstRender = true;
-
-	private retries = 0;
-
-	public render(patternId: string): Promise<string> {
-		return Promise.resolve()
-			.then(() => {
-				return this.loadPatternFile(`${patternplateBase}/demo/${patternId}`, 'text/html')
-					.then(body => {
-						// Inline the CSS (vscode does not reload it on changes)
-						const cssPath = body.match(/<link rel="stylesheet" href="([^"]+)">/);
-						return this.loadPatternFile(`${patternplateBase}${cssPath[1]}`, 'text/css')
-							.then(css => {
-								this.firstRender = false;
-								const html = body
-									.replace(/<link rel="stylesheet" href="([^"]+)">/, `
-										<style type="text/css">
-											${css}
-										</style>
-									`)
-									// Set default background
-									.replace(/<head>/, `
-										<head>
-											<base href="${patternplateBase}/">
-											<style type="text/css">
-												body {
-													background-color: #fff;
-												}
-											</style>
-									`);
-								return html;
-							});
-					});
-			})
-			.catch(error => {
-				if (this.firstRender && this.retries < 10) {
-					this.retries++;
-					return new Promise(resolve => {
-						setTimeout(() => {
-							resolve(this.render(patternId));
-						}, 1000);
-					});
-				}
-				throw error;
-			});
-	}
-
-	private loadPatternFile(fileUrl: string, mimeType: string): Promise<string> {
-		console.log(`loading pattern file ${fileUrl} of type ${mimeType}`);
-		return new Promise((resolve, reject) => {
-			const options: any = url.parse(fileUrl);
-			if (!options.headers) {
-				options.headers = {};
-			}
-			options.headers['Accept'] = mimeType;
-
-			http.get(options, res => {
-				let body = '';
-				res.on('data', (data: any) => {
-					body += data.toString();
-				});
-				res.on('end', () => {
-					resolve(body);
-				});
-				res.resume();
-			}).on('error', (e) => {
-				reject(e);
-			});
-		});
-	}
-}
-
-class Logger {
-
-	constructor(private channel: vscode.OutputChannel) {
-	}
-
-	log(method, ...args) {
-		this.channel.appendLine(`${method} ${args.join(' ')}`);
-	}
-
-	error(...args) {
-		this.log('error', ...args);
-	}
-
-	warn(...args) {
-		this.log('warn', ...args);
-	}
-
-	info(...args) {
-		this.log('info', ...args);
-	}
-
-	debug(...args) {
-		this.log('debug', ...args);
-	}
-
-	silly(...args) {
-		this.log('silly', ...args);
+		if (!this.patternplateAdapter) {
+			throw new Error('No patternplate started');
+		}
+		return this.patternplateAdapter.renderDemo(uri.query);
 	}
 
 }
