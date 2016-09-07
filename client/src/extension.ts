@@ -3,6 +3,7 @@ import 'babel-polyfill';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import * as lsClient from 'vscode-languageclient';
 import * as http from 'http';
 import * as url from 'url';
 import { Logger } from './logger';
@@ -11,6 +12,20 @@ import { createAdapter, PatternplateAdapter } from './patternplate-adapter';
 let patternplateAdapter: PatternplateAdapter;
 
 export function activate(context: vscode.ExtensionContext) {
+	const serverModule = context.asAbsolutePath(path.join('server', 'server.js'));
+	const debugOptions = { execArgv: ["--nolazy", "--debug=6004"] };
+	let serverOptions: lsClient.ServerOptions = {
+		run: { module: serverModule, transport: lsClient.TransportKind.ipc },
+		debug: { module: serverModule, transport: lsClient.TransportKind.ipc, options: debugOptions }
+	}
+	let clientOptions: lsClient.LanguageClientOptions = {
+		documentSelector: ['javascript', 'javascriptreact', 'html', 'css', 'json', 'less', 'markdown'],
+		outputChannelName: 'patternplate language server'
+	}
+	const client = new lsClient.LanguageClient('patternplate-language-server', 'patternplate Language Server',
+		serverOptions, clientOptions).start();
+	context.subscriptions.push(client);
+
 	const channel = vscode.window.createOutputChannel('patternplate')
 	context.subscriptions.push(channel);
 	let disposable = vscode.commands.registerCommand('patternplate.showConsole', () => {
@@ -19,7 +34,22 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(disposable);
 
 	patternplateAdapter = createAdapter(new Logger(channel));
-	patternplateAdapter.start();
+	patternplateAdapter
+		.start()
+		.then(() => {
+			let disposable = vscode.commands.registerCommand('patternplate.open', () => {
+				if (patternplateAdapter && patternplateAdapter.isStarted()) {
+					vscode.commands.executeCommand('vscode.open', patternplateAdapter.uri);
+				}
+			});
+			context.subscriptions.push(disposable);
+
+			const bar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 0);
+			bar.text = 'patternplate';
+			bar.command = 'patternplate.open';
+			bar.show();
+			context.subscriptions.push(bar);
+		});
 
 	const provider = new PatternplateDemoContentProvider(patternplateAdapter);
 	disposable = vscode.workspace.registerTextDocumentContentProvider('patternplate-demo', provider);
@@ -36,20 +66,7 @@ export function activate(context: vscode.ExtensionContext) {
 	// Note: Currently patternplate support only saved documents
 	// vscode.workspace.onDidChangeTextDocument(event => updateDemo(event.document, provider));
 	// vscode.workspace.onDidChangeConfiguration(() =>
-		// vscode.workspace.textDocuments.forEach(document => updateDemo(document, provider)));
-
-	disposable = vscode.commands.registerCommand('patternplate.open', () => {
-		if (patternplateAdapter && patternplateAdapter.isStarted()) {
-			vscode.commands.executeCommand('vscode.open', patternplateAdapter.uri);
-		}
-	});
-	context.subscriptions.push(disposable);
-
-	const bar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 0);
-	bar.text = 'patternplate';
-	bar.command = 'patternplate.open';
-	context.subscriptions.push(bar);
-	bar.show();
+	// vscode.workspace.textDocuments.forEach(document => updateDemo(document, provider)));
 }
 
 export function deactivate() {
@@ -74,10 +91,9 @@ function isPatternFile(document: vscode.TextDocument): boolean {
 
 function getPatternplateDemoUri(uri: vscode.Uri): vscode.Uri {
 	const patternId = uri.fsPath.match(/.*\/patterns\/([^\/]+\/[^\/]+)\/.*/);
-	return (uri as any).with({
+	return uri.with({
 		scheme: 'patternplate-demo',
 		path: path.dirname(uri.path),
-		fsPath: path.dirname(uri.fsPath),
 		query: patternId[1]
 	});
 }
@@ -99,16 +115,17 @@ function showDemo(uri: vscode.Uri, sideBySide: boolean = false): Thenable<any> {
 				return reject(err);
 			}
 			resolve(JSON.parse(data.toString()));
-		})})
-	.then((patternManifest: any) => {
-		const name = patternManifest.displayName || patternManifest.name || demoUri.query;
-		return vscode.commands.executeCommand(
-			'vscode.previewHtml', demoUri, getViewColumn(sideBySide), `${name} Demo`);
+		})
 	})
-	.catch(error => {
-		console.error(error);
-		vscode.window.showErrorMessage(error);
-	});
+		.then((patternManifest: any) => {
+			const name = patternManifest.displayName || patternManifest.name || demoUri.query;
+			return vscode.commands.executeCommand(
+				'vscode.previewHtml', demoUri, getViewColumn(sideBySide), `${name} Demo`);
+		})
+		.catch(error => {
+			console.error(error);
+			vscode.window.showErrorMessage(error);
+		});
 }
 
 function getViewColumn(sideBySide: boolean): vscode.ViewColumn {
