@@ -19,7 +19,7 @@ editor or in a separate tab.
 
 Rendering demos while editing
 
-![demo-screen](./vscode-patternplate-demo.png)
+![demo-screen](./statics/vscode-patternplate-demo.png)
 
 ### 0.1.0
 

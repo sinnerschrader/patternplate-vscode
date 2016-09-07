@@ -5,7 +5,6 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import * as http from 'http';
 import * as url from 'url';
-import * as execa from 'execa';
 
 let patternplateApp: any;
 let patternplateBase: string;

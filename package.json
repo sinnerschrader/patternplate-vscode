@@ -7,7 +7,7 @@
     "engines": {
         "vscode": "^1.0.0"
     },
-    "main": "./out/extension",
+    "main": "./out/src/extension",
     "icon": "icon/logo.svg",
     "homepage": "https://github.com/sinnerschrader/patternplate-vscode",
     "repository": {
@@ -81,8 +81,7 @@
         "postinstall": "node ./node_modules/vscode/bin/install"
     },
     "dependencies": {
-        "babel-polyfill": "^6.13.0",
-        "execa": "^0.4.0"
+        "babel-polyfill": "^6.13.0"
     },
     "devDependencies": {
         "typescript": "^1.8.5",
