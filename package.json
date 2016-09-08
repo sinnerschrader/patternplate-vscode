@@ -1,102 +1,102 @@
 {
-  "name": "patternplate-vscode",
-  "displayName": "patternplate-vscode",
-  "description": "Declares json-schema validation for pattenplate pattern.json files",
-  "version": "0.3.0",
-  "author": "SinnerSchrader",
-  "license": "MIT",
-  "publisher": "SinnerSchrader",
-  "engines": {
-    "vscode": "^1.4.0"
-  },
-  "main": "./out/src/extension",
-  "icon": "icon/logo.svg",
-  "homepage": "https://github.com/sinnerschrader/patternplate-vscode",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/sinnerschrader/patternplate-vscode.git"
-  },
-  "categories": [
-    "Other"
-  ],
-  "activationEvents": [
-    "onLanguage:javascript",
-    "onLanguage:javascriptreact",
-    "onLanguage:html",
-    "onLanguage:css",
-    "onLanguage:json",
-    "onLanguage:less",
-    "onLanguage:markdown"
-  ],
-  "contributes": {
-    "jsonValidation": [
-      {
-        "fileMatch": "pattern.json",
-        "url": "http://json.schemastore.org/pattern"
-      }
+    "name": "patternplate-vscode",
+    "displayName": "patternplate-vscode",
+    "description": "Declares json-schema validation for pattenplate pattern.json files",
+    "version": "0.4.0",
+    "author": "SinnerSchrader",
+    "license": "MIT",
+    "publisher": "SinnerSchrader",
+    "engines": {
+        "vscode": "^1.4.0"
+    },
+    "main": "./out/src/extension",
+    "icon": "icon/logo.svg",
+    "homepage": "https://github.com/sinnerschrader/patternplate-vscode",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/sinnerschrader/patternplate-vscode.git"
+    },
+    "categories": [
+        "Other"
     ],
-    "commands": [
-      {
-        "command": "patternplate.showConsole",
-        "title": "Show Console",
-        "category": "patternplate"
-      },
-      {
-        "command": "patternplate.showDemo",
-        "title": "Show Demo",
-        "category": "patternplate"
-      },
-      {
-        "command": "patternplate.showDemoToSide",
-        "title": "Show Demo to the side",
-        "category": "patternplate"
-      }
+    "activationEvents": [
+        "onLanguage:javascript",
+        "onLanguage:javascriptreact",
+        "onLanguage:html",
+        "onLanguage:css",
+        "onLanguage:json",
+        "onLanguage:less",
+        "onLanguage:markdown"
     ],
-    "menus": {
-      "editor/title": [
-        {
-          "command": "patternplate.showDemo",
-          "alt": "patternplate.showDemoToSide",
-          "group": "patternplate"
+    "contributes": {
+        "jsonValidation": [
+            {
+                "fileMatch": "pattern.json",
+                "url": "http://json.schemastore.org/pattern"
+            }
+        ],
+        "commands": [
+            {
+                "command": "patternplate.showConsole",
+                "title": "Show Console",
+                "category": "patternplate"
+            },
+            {
+                "command": "patternplate.showDemo",
+                "title": "Show Demo",
+                "category": "patternplate"
+            },
+            {
+                "command": "patternplate.showDemoToSide",
+                "title": "Show Demo to the side",
+                "category": "patternplate"
+            }
+        ],
+        "menus": {
+            "editor/title": [
+                {
+                    "command": "patternplate.showDemo",
+                    "alt": "patternplate.showDemoToSide",
+                    "group": "patternplate"
+                }
+            ],
+            "editor/context": [
+                {
+                    "command": "patternplate.showDemo",
+                    "group": "patternplate"
+                },
+                {
+                    "command": "patternplate.showDemoToSide",
+                    "group": "patternplate"
+                }
+            ],
+            "explorer/context": [
+                {
+                    "command": "patternplate.showDemo",
+                    "group": "patternplate"
+                },
+                {
+                    "command": "patternplate.showDemoToSide",
+                    "group": "patternplate"
+                }
+            ]
         }
-      ],
-      "editor/context": [
-        {
-          "command": "patternplate.showDemo",
-          "group": "patternplate"
-        },
-        {
-          "command": "patternplate.showDemoToSide",
-          "group": "patternplate"
-        }
-      ],
-      "explorer/context": [
-        {
-          "command": "patternplate.showDemo",
-          "group": "patternplate"
-        },
-        {
-          "command": "patternplate.showDemoToSide",
-          "group": "patternplate"
-        }
-      ]
+    },
+    "scripts": {
+        "vscode:prepublish": "node ./node_modules/vscode/bin/compile",
+        "compile": "node ./node_modules/vscode/bin/compile -watch -p ./",
+        "postinstall": "node ./node_modules/vscode/bin/install"
+    },
+    "devDependencies": {
+        "typescript": "^1.8.10",
+        "vscode": "^0.11.0"
+    },
+    "dependencies": {
+        "babel-polyfill": "^6.13.0",
+        "core-js": "^2.4.1",
+        "globby": "^6.0.0",
+        "json-to-ast": "^1.2.13",
+        "regenerator-runtime": "^0.9.5",
+        "vscode-languageclient": "^2.2.1"
     }
-  },
-  "scripts": {
-    "vscode:prepublish": "node ./node_modules/vscode/bin/compile",
-    "compile": "node ./node_modules/vscode/bin/compile -watch -p ./",
-    "postinstall": "node ./node_modules/vscode/bin/install"
-  },
-  "devDependencies": {
-    "typescript": "^1.8.10",
-    "vscode": "^0.11.0"
-  },
-  "dependencies": {
-    "babel-polyfill": "^6.13.0",
-    "core-js": "^2.4.1",
-    "globby": "^6.0.0",
-    "json-to-ast": "^1.2.13",
-    "regenerator-runtime": "^0.9.5",
-    "vscode-languageclient": "^2.2.1"
-  }
 }
