@@ -1,5 +1,5 @@
 'use strict';
-import 'babel-polyfill';
+
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
@@ -8,24 +8,12 @@ import * as http from 'http';
 import * as url from 'url';
 import { Logger } from './logger';
 import { createAdapter, PatternplateAdapter } from './patternplate-adapter';
+import * as jsonToAst from 'json-to-ast';
+import * as globby from 'globby';
 
 let patternplateAdapter: PatternplateAdapter;
 
 export function activate(context: vscode.ExtensionContext) {
-	const serverModule = context.asAbsolutePath(path.join('server', 'server.js'));
-	const debugOptions = { execArgv: ["--nolazy", "--debug=6004"] };
-	let serverOptions: lsClient.ServerOptions = {
-		run: { module: serverModule, transport: lsClient.TransportKind.ipc },
-		debug: { module: serverModule, transport: lsClient.TransportKind.ipc, options: debugOptions }
-	}
-	let clientOptions: lsClient.LanguageClientOptions = {
-		documentSelector: ['javascript', 'javascriptreact', 'html', 'css', 'json', 'less', 'markdown'],
-		outputChannelName: 'patternplate language server'
-	}
-	const client = new lsClient.LanguageClient('patternplate-language-server', 'patternplate Language Server',
-		serverOptions, clientOptions).start();
-	context.subscriptions.push(client);
-
 	const channel = vscode.window.createOutputChannel('patternplate')
 	context.subscriptions.push(channel);
 	let disposable = vscode.commands.registerCommand('patternplate.showConsole', () => {
@@ -54,6 +42,9 @@ export function activate(context: vscode.ExtensionContext) {
 	const provider = new PatternplateDemoContentProvider(patternplateAdapter);
 	disposable = vscode.workspace.registerTextDocumentContentProvider('patternplate-demo', provider);
 	context.subscriptions.push(disposable);
+
+	vscode.languages.registerCompletionItemProvider({ language: 'json', pattern: '**/pattern.json' },
+		new PatternManifestCompletionItemProvider(patternplateAdapter));
 
 	disposable = vscode.commands.registerCommand('patternplate.showDemo', showDemo);
 	context.subscriptions.push(disposable);
@@ -176,6 +167,75 @@ class PatternplateDemoContentProvider implements vscode.TextDocumentContentProvi
 			throw new Error('No patternplate started');
 		}
 		return this.patternplateAdapter.renderDemo(uri.query);
+	}
+
+}
+
+class PatternManifestCompletionItemProvider implements vscode.CompletionItemProvider {
+
+	private patternplateAdapter: PatternplateAdapter;
+
+	constructor(patternplateAdapter: PatternplateAdapter) {
+		this.patternplateAdapter = patternplateAdapter;
+	}
+
+	public provideCompletionItems(document: vscode.TextDocument, position: vscode.Position,
+			token: vscode.CancellationToken): vscode.CompletionItem[] | Promise<vscode.CompletionItem[]> {
+		if (token.isCancellationRequested) {
+			return [];
+		}
+		return Promise.race([
+			new Promise(resolve => {
+				const disposable = token.onCancellationRequested(() => {
+					disposable.dispose();
+					resolve([]);
+				});
+			}),
+			this.completionForPatternManifest(document, position)
+		])
+		.then(winner => winner);
+	}
+
+	private completionForPatternManifest(doc: vscode.TextDocument,
+			position: vscode.Position): Promise<vscode.CompletionItem[]> {
+		return this.getPatterns()
+			.then(patterns => {
+				const range = this.getDependencyRange(doc, position);
+				if (!range) {
+					return [];
+				}
+				const editorRange = new vscode.Range(range.start.line - 1, range.start.column,
+					range.end.line - 1, range.end.column - 2);
+				return patterns
+					.map(patternId => ({
+						label: patternId,
+						kind: vscode.CompletionItemKind.Text,
+						textEdit: vscode.TextEdit.replace(editorRange, patternId)
+					} as vscode.CompletionItem));
+			})
+			.catch(e => {
+				console.error(e);
+				vscode.window.showErrorMessage(e);
+			});
+	}
+
+	private getPatterns(): Promise<string[]> {
+		return this.patternplateAdapter.getPatternIds();
+	}
+
+	private getDependencyRange(doc: vscode.TextDocument, position: vscode.Position): jsonToAst.Position {
+		const ast = jsonToAst(doc.getText());
+		const dependencies = ast.properties.find(property => property.key.value === 'patterns');
+		if (!dependencies || dependencies.value.type !== 'object') {
+			return null;
+		}
+		const dependencyValueRanges = (dependencies.value as jsonToAst.Object).properties
+			.map(property => property.value.position);
+		return dependencyValueRanges.find(range => this.isInsideRange(doc.offsetAt(position), range));
+	}
+
+	private isInsideRange(offset: number, range: jsonToAst.Position): boolean {
+		return range.start.char < offset && offset < range.end.char;
 	}
 
 }
