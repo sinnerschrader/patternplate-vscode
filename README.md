@@ -7,6 +7,10 @@ editor or in a separate tab.
 
 ## Release Notes
 
+### 0.4.0
+
+* Completion of pattern dependencies in pattern.json files
+
 ### 0.3.0
 
 * Add extension points for opening demo to editor context menu
