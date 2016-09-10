@@ -145,7 +145,8 @@ class Patternplate0x implements PatternplateAdapter {
 
 		return this.connector.requestFile(`${this.base}/api/meta`, 'application/json')
 			.then(data => JSON.parse(data))
-			.then(data => getIds(data));
+			.then(data => getIds(data))
+			.catch(error => []);
 	}
 
 }
@@ -153,34 +154,36 @@ class Patternplate0x implements PatternplateAdapter {
 class HttpConnector {
 
 	public render(base: string, patternId: string): Promise<string> {
-		return Promise.resolve()
-			.then(() => {
-				return this.requestFile(`${base}/demo/${patternId}`, 'text/html')
-					.then(body => {
-						// Inline the CSS (vscode does not reload it on changes)
-						const cssPath = body.match(/<link rel="stylesheet" href="([^"]+)">/);
-						return this.requestFile(`${base}${cssPath[1]}`, 'text/css')
-							.then(css => {
-								const html = body
-									.replace(/<link rel="stylesheet" href="([^"]+)">/, `
-										<style type="text/css">
-											${css}
-										</style>
-									`)
-									// Set default background
-									.replace(/<head>/, `
-										<head>
-											<base href="${base}/">
-											<style type="text/css">
-												body {
-													background-color: #fff;
-												}
-											</style>
-									`);
-								return html;
-							});
-					});
+		return this.requestFile(`${base}/demo/${patternId}`, 'text/html')
+			.then(body => this.patchBaseAndBackground(base, body))
+			.then(body => {
+				// Inline the CSS (vscode does not reload it on changes)
+				const cssPath = body.match(/<link rel="stylesheet" href="([^"]+)">/);
+				if (cssPath) {
+					return this.requestFile(`${base}${cssPath[1]}`, 'text/css')
+						.then(css => {
+							return body
+								.replace(/<link rel="stylesheet" href="([^"]+)">/, `
+									<style type="text/css">
+										${css}
+									</style>
+								`);
+						});
+				}
+				return body;
 			});
+	}
+
+	private patchBaseAndBackground(base: string, html: string): string {
+		return html.replace(/<head>/, `
+			<head>
+				<base href="${base}/">
+				<style type="text/css">
+					body {
+						background-color: #fff;
+					}
+				</style>
+		`);
 	}
 
 	public requestFile(fileUrl: string, mimeType: string): Promise<string> {

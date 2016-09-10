@@ -1,4 +1,4 @@
-import 'core-js/fn/object/entries';
+import 'babel-polyfill';
 import 'regenerator-runtime/runtime';
 
 import * as RPC from './rpc';
@@ -38,7 +38,7 @@ process.on('message', (message: RPC.Message) => {
 					port
 				} as RPC.Started);
 			}).catch(error => {
-				console.log(error);
+				console.log(JSON.stringify(error));
 				process.send({
 					type: 'error',
 					error: error.message
