@@ -8,8 +8,7 @@ import * as http from 'http';
 import * as url from 'url';
 import { Logger } from './logger';
 import { createAdapter, PatternplateAdapter } from './patternplate-adapter';
-import * as jsonToAst from 'json-to-ast';
-import * as globby from 'globby';
+import parseJson, * as JsonastTypes from 'jsonast';
 
 let patternplateAdapter: PatternplateAdapter;
 
@@ -223,18 +222,17 @@ class PatternManifestCompletionItemProvider implements vscode.CompletionItemProv
 		return this.patternplateAdapter.getPatternIds();
 	}
 
-	private getDependencyRange(doc: vscode.TextDocument, position: vscode.Position): jsonToAst.Position {
-		const ast = jsonToAst(doc.getText());
-		const dependencies = ast.properties.find(property => property.key.value === 'patterns');
-		if (!dependencies || dependencies.value.type !== 'object') {
-			return null;
-		}
-		const dependencyValueRanges = (dependencies.value as jsonToAst.Object).properties
-			.map(property => property.value.position);
+	private getDependencyRange(doc: vscode.TextDocument, position: vscode.Position): JsonastTypes.Position {
+		const ast = parseJson<JsonastTypes.JsonObject>(doc.getText());
+		const patternsMember = ast.members
+			.find(member => member.key.value === 'patterns');
+		const dependencyValueRanges = (patternsMember.value as JsonastTypes.JsonObject).members
+			.map(member => member.value as JsonastTypes.JsonString)
+			.map(dependency => dependency.pos);
 		return dependencyValueRanges.find(range => this.isInsideRange(doc.offsetAt(position), range));
 	}
 
-	private isInsideRange(offset: number, range: jsonToAst.Position): boolean {
+	private isInsideRange(offset: number, range: JsonastTypes.Position): boolean {
 		return range.start.char < offset && offset < range.end.char;
 	}
 
