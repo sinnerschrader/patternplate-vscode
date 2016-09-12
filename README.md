@@ -7,9 +7,12 @@ editor or in a separate tab.
 
 ## Release Notes
 
-### 0.4.0
+### 0.4.x
 
 * Completion of pattern dependencies in pattern.json files
+* Hover information in pattern.json
+* Linking in pattern.json
+* References in pattern.json
 
 ### 0.3.0
 
