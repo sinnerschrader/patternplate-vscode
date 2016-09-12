@@ -36,27 +36,28 @@ export function activate(context: vscode.ExtensionContext) {
 			bar.command = 'patternplate.open';
 			bar.show();
 			context.subscriptions.push(bar);
+
+			const provider = new PatternplateDemoContentProvider(patternplateAdapter);
+			disposable = vscode.workspace.registerTextDocumentContentProvider('patternplate-demo', provider);
+			context.subscriptions.push(disposable);
+			vscode.workspace.onDidSaveTextDocument(document => updateDemo(document, provider));
+			// Note: Currently patternplate support only saved documents
+			// vscode.workspace.onDidChangeTextDocument(event => updateDemo(event.document, provider));
+			// vscode.workspace.onDidChangeConfiguration(() =>
+			// vscode.workspace.textDocuments.forEach(document => updateDemo(document, provider)));
+
+			vscode.languages.registerCompletionItemProvider({ language: 'json', pattern: '**/pattern.json' },
+				new PatternManifestCompletionItemProvider(patternplateAdapter));
+			vscode.languages.registerDocumentLinkProvider({ language: 'json', pattern: '**/pattern.json' },
+				new PatternManifestLinkProvider());
+
+			disposable = vscode.commands.registerCommand('patternplate.showDemo', showDemo);
+			context.subscriptions.push(disposable);
+
+			disposable = vscode.commands.registerCommand('patternplate.showDemoToSide',
+				(uri: vscode.Uri) => showDemo(uri, true));
+			context.subscriptions.push(disposable);
 		});
-
-	const provider = new PatternplateDemoContentProvider(patternplateAdapter);
-	disposable = vscode.workspace.registerTextDocumentContentProvider('patternplate-demo', provider);
-	context.subscriptions.push(disposable);
-
-	vscode.languages.registerCompletionItemProvider({ language: 'json', pattern: '**/pattern.json' },
-		new PatternManifestCompletionItemProvider(patternplateAdapter));
-
-	disposable = vscode.commands.registerCommand('patternplate.showDemo', showDemo);
-	context.subscriptions.push(disposable);
-
-	disposable = vscode.commands.registerCommand('patternplate.showDemoToSide',
-		(uri: vscode.Uri) => showDemo(uri, true));
-	context.subscriptions.push(disposable);
-
-	vscode.workspace.onDidSaveTextDocument(document => updateDemo(document, provider));
-	// Note: Currently patternplate support only saved documents
-	// vscode.workspace.onDidChangeTextDocument(event => updateDemo(event.document, provider));
-	// vscode.workspace.onDidChangeConfiguration(() =>
-	// vscode.workspace.textDocuments.forEach(document => updateDemo(document, provider)));
 }
 
 export function deactivate() {
@@ -235,5 +236,32 @@ class PatternManifestCompletionItemProvider implements vscode.CompletionItemProv
 	private isInsideRange(offset: number, range: JsonastTypes.Position): boolean {
 		return range.start.char < offset && offset < range.end.char;
 	}
+
+}
+
+class PatternManifestLinkProvider implements vscode.DocumentLinkProvider {
+
+		public provideDocumentLinks(document: vscode.TextDocument,
+				token: vscode.CancellationToken): vscode.DocumentLink[] | Promise<vscode.DocumentLink[]> {
+			const ast = parseJson<JsonastTypes.JsonObject>(document.getText());
+			const patternsMember = ast.members
+				.find(member => member.key.value === 'patterns');
+			const dependencies = (patternsMember.value as JsonastTypes.JsonObject).members
+				.map(member => member.value as JsonastTypes.JsonString)
+				.map(dependency => ({
+					pos: dependency.pos,
+					value: dependency.value
+				}));
+
+			return dependencies.map(dependency => {
+				const range = new vscode.Range(dependency.pos.start.line - 1, dependency.pos.start.column,
+					dependency.pos.end.line - 1, dependency.pos.end.column - 2);
+				const uriParts = document.uri.path.match('(.*/patterns/).*');
+				const uri = document.uri.with({
+					path: `${uriParts[1]}${dependency.value}/pattern.json`
+				})
+				return new vscode.DocumentLink(range, uri);
+			});
+		}
 
 }
