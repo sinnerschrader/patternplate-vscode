@@ -13,6 +13,8 @@ export interface PatternplateAdapter {
 	isStarted(): boolean;
 	renderDemo(patternId: string): Promise<string>;
 	getPatternIds(): Promise<string[]>;
+	getPatternDependencies(): Promise<{[patternId: string]: {[locallId: string]: string}}>;
+	getPatternDependents(patternId:string): Promise<string[]>;
 }
 
 export function createAdapter(logger: Logger): PatternplateAdapter {
@@ -118,6 +120,17 @@ class Patternplate0x implements PatternplateAdapter {
 		return tryRender();
 	}
 
+	private getFolders(obj: any): any[] {
+		return Object.keys(obj)
+			.map(key => obj[key])
+			.filter(entry => entry.type === 'folder')
+			.reduce((list, entry) => {
+				list.push(entry);
+				list.push.apply(list, this.getFolders(Object.keys(entry.children).map(key => entry.children[key])))
+				return list;
+			}, []);
+	}
+
 	public getPatternIds(): Promise<string[]> {
 		const getIdsFromFolder = (obj): string[] => {
 			return Object.keys(obj.children)
@@ -125,28 +138,63 @@ class Patternplate0x implements PatternplateAdapter {
 				.filter(entry => entry.type === 'pattern')
 				.map(entry => entry.id);
 		};
-		const getFolders = (obj): any[] => {
-			return Object.keys(obj)
-				.map(key => obj[key])
-				.filter(entry => entry.type === 'folder')
-				.reduce((list, entry) => {
-					list.push(entry);
-					list.push.apply(list, getFolders(Object.keys(entry.children).map(key => entry.children[key])))
-					return list;
-				}, []);
-		};
-		const getIds = (obj): string[] => {
-			return getFolders(obj)
+		const getFromPattern = (obj, fn: (obj: any) => any[]): string[] => {
+			return this.getFolders(obj)
 				.reduce((list, folder) => {
-					list.push.apply(list, getIdsFromFolder(folder));
+					list.push.apply(list, fn(folder));
 					return list;
 				}, []);
 		}
-
-		return this.connector.requestFile(`${this.base}/api/meta`, 'application/json')
-			.then(data => JSON.parse(data))
-			.then(data => getIds(data))
+		return this.getMetaData()
+			.then(data => getFromPattern(data, getIdsFromFolder))
 			.catch(error => []);
+	}
+
+	public getPatternDependencies(): Promise<{[patternId: string]: {[locallId: string]: string}}> {
+		const getDependenciesFromFolder = (obj): {[patternId: string]: {[locallId: string]: string}} => {
+			return Object.keys(obj.children)
+				.map(key => obj.children[key])
+				.filter(entry => entry.type === 'pattern')
+				.map(entry => [entry.id, entry.manifest.patterns])
+				.reduce((res, pat) => {
+					res[pat[0]] = pat[1];
+					return res;
+				}, {} as {[patternId: string]: {[locallId: string]: string}});
+		};
+		const getFromPattern = (obj, fn: (obj: any) => any): {[patternId: string]: {[locallId: string]: string}} => {
+			return this.getFolders(obj)
+				.reduce((res, folder) => {
+					const temp = fn(folder);
+					Object.keys(temp).forEach(key => {
+						res[key] = temp[key] || {};
+					});
+					return res;
+				}, {} as {[patternId: string]: {[locallId: string]: string}});
+		}
+		return this.getMetaData()
+			.then(data => getFromPattern(data, getDependenciesFromFolder))
+			.catch(error => ({}));
+	}
+
+	public getPatternDependents(patternId:string): Promise<string[]> {
+		return this.getPatternDependencies()
+			.then(dependencies => {
+				return Object.keys(dependencies).map(name => {
+						return Object
+								.keys(dependencies[name])
+								.map(local => dependencies[name][local])
+								.indexOf(patternId) > -1
+							? name
+							: false;
+					})
+					.filter(name => Boolean(name));
+			})
+			.catch(error => []);
+	}
+
+	private getMetaData(): Promise<any> {
+		return this.connector.requestFile(`${this.base}/api/meta`, 'application/json')
+			.then(data => JSON.parse(data));
 	}
 
 }

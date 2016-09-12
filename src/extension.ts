@@ -46,12 +46,22 @@ export function activate(context: vscode.ExtensionContext) {
 			// vscode.workspace.onDidChangeConfiguration(() =>
 			// vscode.workspace.textDocuments.forEach(document => updateDemo(document, provider)));
 
-			vscode.languages.registerCompletionItemProvider({ language: 'json', pattern: '**/pattern.json' },
-				new PatternManifestCompletionItemProvider(patternplateAdapter));
-			vscode.languages.registerDocumentLinkProvider({ language: 'json', pattern: '**/pattern.json' },
-				new PatternManifestLinkProvider());
-			vscode.languages.registerHoverProvider({ language: 'json', pattern: '**/pattern.json' },
-				new PatternDocumentationHoverProvider());
+			disposable = vscode.languages.registerCompletionItemProvider(
+				{ language: 'json', pattern: '**/pattern.json' },
+					new PatternManifestCompletionItemProvider(patternplateAdapter));
+			context.subscriptions.push(disposable);
+			disposable = vscode.languages.registerDocumentLinkProvider(
+				{ language: 'json', pattern: '**/pattern.json' },
+					new PatternManifestLinkProvider());
+			context.subscriptions.push(disposable);
+			disposable = vscode.languages.registerHoverProvider(
+				{ language: 'json', pattern: '**/pattern.json' },
+					new PatternDocumentationHoverProvider());
+			context.subscriptions.push(disposable);
+			disposable = vscode.languages.registerReferenceProvider(
+				{ language: 'json', pattern: '**/pattern.json' },
+					new PatternReferenceProvider(patternplateAdapter));
+			context.subscriptions.push(disposable);
 
 			disposable = vscode.commands.registerCommand('patternplate.showDemo', showDemo);
 			context.subscriptions.push(disposable);
@@ -138,8 +148,29 @@ function getViewColumn(sideBySide: boolean): vscode.ViewColumn {
 	return active.viewColumn;
 }
 
-function getPatternDependencies(document: vscode.TextDocument): { pos: JsonastTypes.Position; value: string; }[] {
-	const ast = parseJson<JsonastTypes.JsonObject>(document.getText());
+function getPatternName(
+		document: vscode.TextDocument | JsonastTypes.JsonObject): { pos: JsonastTypes.Position; value: string; } {
+	let ast: JsonastTypes.JsonObject;
+	if ((document as vscode.TextDocument).uri) {
+		ast = parseJson<JsonastTypes.JsonObject>((document as vscode.TextDocument).getText());
+	} else {
+		ast = document as JsonastTypes.JsonObject;
+	}
+	const name = ast.members.find(value => value.key.value === 'name');
+	return {
+		pos: name.value.pos,
+		value: (name.value as JsonastTypes.JsonString).value
+	};
+}
+
+function getPatternDependencies(
+		document: vscode.TextDocument | JsonastTypes.JsonObject): { pos: JsonastTypes.Position; value: string; }[] {
+	let ast: JsonastTypes.JsonObject;
+	if ((document as vscode.TextDocument).uri) {
+		ast = parseJson<JsonastTypes.JsonObject>((document as vscode.TextDocument).getText());
+	} else {
+		ast = document as JsonastTypes.JsonObject;
+	}
 	const patternsMember = ast.members
 		.find(member => member.key.value === 'patterns');
 	return (patternsMember.value as JsonastTypes.JsonObject).members
@@ -233,7 +264,7 @@ class PatternManifestCompletionItemProvider implements vscode.CompletionItemProv
 
 	private completionForPatternManifest(doc: vscode.TextDocument,
 			position: vscode.Position): Promise<vscode.CompletionItem[]> {
-		return this.getPatterns()
+		return this.patternplateAdapter.getPatternIds()
 			.then(patterns => {
 				const range = this.getDependencyRange(doc, position);
 				if (!range) {
@@ -250,10 +281,6 @@ class PatternManifestCompletionItemProvider implements vscode.CompletionItemProv
 				console.error(e);
 				vscode.window.showErrorMessage(e);
 			});
-	}
-
-	private getPatterns(): Promise<string[]> {
-		return this.patternplateAdapter.getPatternIds();
 	}
 
 	private getDependencyRange(doc: vscode.TextDocument, position: vscode.Position): JsonastTypes.Position {
@@ -277,7 +304,7 @@ class PatternManifestLinkProvider implements vscode.DocumentLinkProvider {
 				const uriParts = document.uri.path.match('(.*/patterns/).*');
 				const uri = document.uri.with({
 					path: `${uriParts[1]}${dependency.value}/pattern.json`
-				})
+				});
 				return new vscode.DocumentLink(jsonastPositionToRange(dependency.pos), uri);
 			});
 	}
@@ -301,6 +328,50 @@ class PatternDocumentationHoverProvider implements vscode.HoverProvider {
 					text = text.substr(0, 200) + '...';
 				}
 				return new vscode.Hover(text, jsonastPositionToRange(dependency.pos));
+			});
+	}
+
+	private isInsideRange(offset: number, range: JsonastTypes.Position): boolean {
+		return range.start.char < offset && offset < range.end.char;
+	}
+
+}
+
+class PatternReferenceProvider implements vscode.ReferenceProvider {
+
+	private patternplateAdapter: PatternplateAdapter;
+
+	constructor(patternplateAdapter: PatternplateAdapter) {
+		this.patternplateAdapter = patternplateAdapter;
+	}
+
+	public provideReferences(document: vscode.TextDocument, position: vscode.Position,
+			context: vscode.ReferenceContext,
+				token: vscode.CancellationToken): vscode.Location[] | Promise<vscode.Location[]> {
+		// Fixme: this is quite ugly...
+		const ast = parseJson<JsonastTypes.JsonObject>(document.getText());
+		let name = getPatternName(ast);
+		if (!this.isInsideRange(document.offsetAt(position), name.pos)) {
+			name = undefined;
+		} else {
+			name.value = document.uri.path.match('.*/patterns/(.*)/pattern.json')[1];
+		}
+		console.log('name', name.value);
+		const dependency = getPatternDependencies(ast)
+			.find(dependency => this.isInsideRange(document.offsetAt(position), dependency.pos));
+		if (!name && !dependency) {
+			return undefined;
+		}
+		return this.patternplateAdapter.getPatternDependents(name ? name.value : dependency.value)
+			.then(dependents => {
+				return dependents.map(name => {
+					const uriParts = document.uri.path.match('(.*/patterns/).*');
+					const uri = document.uri.with({
+						path: `${uriParts[1]}${name}/pattern.json`
+					});
+					// TODO: Give better position/range in target document
+					return new vscode.Location(uri, new vscode.Position(0, 0));
+				});
 			});
 	}
 
