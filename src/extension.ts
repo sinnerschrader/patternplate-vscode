@@ -50,6 +50,8 @@ export function activate(context: vscode.ExtensionContext) {
 				new PatternManifestCompletionItemProvider(patternplateAdapter));
 			vscode.languages.registerDocumentLinkProvider({ language: 'json', pattern: '**/pattern.json' },
 				new PatternManifestLinkProvider());
+			vscode.languages.registerHoverProvider({ language: 'json', pattern: '**/pattern.json' },
+				new PatternDocumentationHoverProvider());
 
 			disposable = vscode.commands.registerCommand('patternplate.showDemo', showDemo);
 			context.subscriptions.push(disposable);
@@ -241,27 +243,74 @@ class PatternManifestCompletionItemProvider implements vscode.CompletionItemProv
 
 class PatternManifestLinkProvider implements vscode.DocumentLinkProvider {
 
-		public provideDocumentLinks(document: vscode.TextDocument,
-				token: vscode.CancellationToken): vscode.DocumentLink[] | Promise<vscode.DocumentLink[]> {
-			const ast = parseJson<JsonastTypes.JsonObject>(document.getText());
-			const patternsMember = ast.members
-				.find(member => member.key.value === 'patterns');
-			const dependencies = (patternsMember.value as JsonastTypes.JsonObject).members
-				.map(member => member.value as JsonastTypes.JsonString)
-				.map(dependency => ({
-					pos: dependency.pos,
-					value: dependency.value
-				}));
+	public provideDocumentLinks(document: vscode.TextDocument,
+			token: vscode.CancellationToken): vscode.DocumentLink[] | Promise<vscode.DocumentLink[]> {
+		const ast = parseJson<JsonastTypes.JsonObject>(document.getText());
+		const patternsMember = ast.members
+			.find(member => member.key.value === 'patterns');
+		const dependencies = (patternsMember.value as JsonastTypes.JsonObject).members
+			.map(member => member.value as JsonastTypes.JsonString)
+			.map(dependency => ({
+				pos: dependency.pos,
+				value: dependency.value
+			}));
 
-			return dependencies.map(dependency => {
-				const range = new vscode.Range(dependency.pos.start.line - 1, dependency.pos.start.column,
-					dependency.pos.end.line - 1, dependency.pos.end.column - 2);
-				const uriParts = document.uri.path.match('(.*/patterns/).*');
-				const uri = document.uri.with({
-					path: `${uriParts[1]}${dependency.value}/pattern.json`
-				})
-				return new vscode.DocumentLink(range, uri);
-			});
+		return dependencies.map(dependency => {
+			const range = new vscode.Range(dependency.pos.start.line - 1, dependency.pos.start.column,
+				dependency.pos.end.line - 1, dependency.pos.end.column - 2);
+			const uriParts = document.uri.path.match('(.*/patterns/).*');
+			const uri = document.uri.with({
+				path: `${uriParts[1]}${dependency.value}/pattern.json`
+			})
+			return new vscode.DocumentLink(range, uri);
+		});
+	}
+
+}
+
+class PatternDocumentationHoverProvider implements vscode.HoverProvider {
+
+	public provideHover(document: vscode.TextDocument, position: vscode.Position,
+			token: vscode.CancellationToken): vscode.Hover | Promise<vscode.Hover> {
+		const ast = parseJson<JsonastTypes.JsonObject>(document.getText());
+		const patternsMember = ast.members
+			.find(member => member.key.value === 'patterns');
+		const dependencies = (patternsMember.value as JsonastTypes.JsonObject).members
+			.map(member => member.value as JsonastTypes.JsonString)
+			.map(dependency => ({
+				pos: dependency.pos,
+				value: dependency.value
+			}));
+
+		const dependency = dependencies.find(dependency => this.isInsideRange(document.offsetAt(position), dependency.pos));
+		if (!dependency) {
+			return undefined;
 		}
+		const range = new vscode.Range(dependency.pos.start.line - 1, dependency.pos.start.column,
+				dependency.pos.end.line - 1, dependency.pos.end.column - 2);
+		const uriParts = document.uri.path.match('(.*/patterns/).*');
+		const path = `${uriParts[1]}${dependency.value}/index.md`;
+		return new Promise((resolve, reject) => {
+			fs.exists(path, exists => {
+				if (!exists) {
+					return reject(undefined);
+				}
+				fs.readFile(path, (err, data) => {
+					if (err) {
+						return reject(undefined);
+					}
+					let text = data.toString();
+					if (text.length > 200) {
+						text = text.substr(0, 200) + '...';
+					}
+					resolve(new vscode.Hover(text, range));
+				});
+			});
+		});
+	}
+
+	private isInsideRange(offset: number, range: JsonastTypes.Position): boolean {
+		return range.start.char < offset && offset < range.end.char;
+	}
 
 }
