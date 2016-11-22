@@ -2,7 +2,7 @@
     "name": "patternplate-vscode",
     "displayName": "patternplate-vscode",
     "description": "Declares json-schema validation for pattenplate pattern.json files",
-    "version": "0.4.4",
+    "version": "0.5.0",
     "author": "SinnerSchrader",
     "license": "MIT",
     "publisher": "SinnerSchrader",
