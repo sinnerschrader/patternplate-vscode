@@ -37,6 +37,11 @@
         ],
         "commands": [
             {
+                "command": "patternplate.restart",
+                "title": "Restart patternplate",
+                "category": "patternplate"
+            },
+            {
                 "command": "patternplate.showConsole",
                 "title": "Show Console",
                 "category": "patternplate"

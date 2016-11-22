@@ -24,7 +24,11 @@ export function activate(context: vscode.ExtensionContext) {
 	patternplateAdapter
 		.start()
 		.then(() => {
-			let disposable = vscode.commands.registerCommand('patternplate.open', () => {
+			let disposable = vscode.commands.registerCommand('patternplate.restart', () => {
+				patternplateAdapter.stop().then(() => patternplateAdapter.start());
+			});
+			context.subscriptions.push(disposable);
+			disposable = vscode.commands.registerCommand('patternplate.open', () => {
 				if (patternplateAdapter && patternplateAdapter.isStarted()) {
 					vscode.commands.executeCommand('vscode.open', patternplateAdapter.uri);
 				}
