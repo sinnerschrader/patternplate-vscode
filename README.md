@@ -1,5 +1,7 @@
 # patternplate-vscode
 
+[![Greenkeeper badge](https://badges.greenkeeper.io/sinnerschrader/patternplate-vscode.svg)](https://greenkeeper.io/)
+
 The "patternplate-vscode" currently validates and supports in pattern.json creation and editing.
 This is based on the jsonschema file for pattern.json files.  
 In addition to this it is possible to render pattern demos like the markdown preview - either next to the current
