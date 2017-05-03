@@ -208,7 +208,11 @@ class HttpConnector {
 				// Inline the CSS (vscode does not reload it on changes)
 				const cssPath = body.match(/<link rel="stylesheet" href="([^"]+)">/);
 				if (cssPath) {
-					return this.requestFile(`${base}${cssPath[1]}`, 'text/css')
+					let cssUri = cssPath[1];
+					if (cssUri.startsWith('./')) {
+						cssUri = `/demo/${patternId}/${cssUri.replace(/^\.\//, '')}`;
+					}
+					return this.requestFile(`${base}${cssUri}`, 'text/css')
 						.then(css => {
 							return body
 								.replace(/<link rel="stylesheet" href="([^"]+)">/, `
