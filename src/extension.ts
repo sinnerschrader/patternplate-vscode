@@ -11,6 +11,7 @@ import { createAdapter, PatternplateAdapter } from './patternplate-adapter';
 import parseJson, * as JsonastTypes from 'jsonast';
 
 let patternplateAdapter: PatternplateAdapter;
+let logger: Logger;
 
 export function activate(context: vscode.ExtensionContext) {
 	const channel = vscode.window.createOutputChannel('patternplate')
@@ -20,7 +21,8 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 	context.subscriptions.push(disposable);
 
-	patternplateAdapter = createAdapter(new Logger(channel));
+	logger = new Logger(channel);
+	patternplateAdapter = createAdapter(logger);
 	patternplateAdapter
 		.start()
 		.then(() => {
@@ -92,12 +94,12 @@ function updateDemo(document: vscode.TextDocument, provider: PatternplateDemoCon
 function isPatternFile(document: vscode.TextDocument): boolean {
 	const folder = path.dirname(document.uri.fsPath);
 	const hasPatternManifest = fs.existsSync(path.join(folder, 'pattern.json'));
-	const patternId = document.uri.fsPath.match(/.*\/patterns\/([^\/]+\/[^\/]+)\/.*/);
+	const patternId = document.uri.fsPath.match(/.*\/patterns\/([^\/]+(?:\/[^\/]+)?)\/.*/);
 	return hasPatternManifest && patternId && document.uri.scheme !== 'patternplate-demo';
 }
 
 function getPatternplateDemoUri(uri: vscode.Uri): vscode.Uri {
-	const patternId = uri.fsPath.match(/.*\/patterns\/([^\/]+\/[^\/]+)\/.*/);
+	const patternId = uri.fsPath.match(/.*\/patterns\/([^\/]+(?:\/[^\/]+)?)\/.*/);
 	return uri.with({
 		scheme: 'patternplate-demo',
 		path: path.dirname(uri.path),
@@ -115,7 +117,9 @@ function showDemo(uri: vscode.Uri, sideBySide: boolean = false): Thenable<any> {
 	if (!(resource instanceof vscode.Uri)) {
 		return;
 	}
+	logger.info(`Pattern URI: ${resource.toString()}`);
 	const demoUri = getPatternplateDemoUri(resource);
+	logger.info(`Demo URI: ${demoUri.toString()}`);
 	return new Promise((resolve, reject) => {
 		fs.readFile(path.join(demoUri.fsPath, 'pattern.json'), (err, data) => {
 			if (err) {
