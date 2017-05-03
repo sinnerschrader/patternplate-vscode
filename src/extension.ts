@@ -52,19 +52,19 @@ export function activate(context: vscode.ExtensionContext) {
 
 			disposable = vscode.languages.registerCompletionItemProvider(
 				{ language: 'json', pattern: '**/pattern.json' },
-					new PatternManifestCompletionItemProvider(patternplateAdapter));
+				new PatternManifestCompletionItemProvider(patternplateAdapter));
 			context.subscriptions.push(disposable);
 			disposable = vscode.languages.registerDocumentLinkProvider(
 				{ language: 'json', pattern: '**/pattern.json' },
-					new PatternManifestLinkProvider());
+				new PatternManifestLinkProvider());
 			context.subscriptions.push(disposable);
 			disposable = vscode.languages.registerHoverProvider(
 				{ language: 'json', pattern: '**/pattern.json' },
-					new PatternDocumentationHoverProvider());
+				new PatternDocumentationHoverProvider());
 			context.subscriptions.push(disposable);
 			disposable = vscode.languages.registerReferenceProvider(
 				{ language: 'json', pattern: '**/pattern.json' },
-					new PatternReferenceProvider(patternplateAdapter));
+				new PatternReferenceProvider(patternplateAdapter));
 			context.subscriptions.push(disposable);
 
 			disposable = vscode.commands.registerCommand('patternplate.showDemo', showDemo);
@@ -153,7 +153,7 @@ function getViewColumn(sideBySide: boolean): vscode.ViewColumn {
 }
 
 function getPatternName(
-		document: vscode.TextDocument | JsonastTypes.JsonObject): { pos: JsonastTypes.Position; value: string; } {
+	document: vscode.TextDocument | JsonastTypes.JsonObject): { pos: JsonastTypes.Position; value: string; } {
 	let ast: JsonastTypes.JsonObject;
 	if ((document as vscode.TextDocument).uri) {
 		ast = parseJson<JsonastTypes.JsonObject>((document as vscode.TextDocument).getText());
@@ -168,7 +168,7 @@ function getPatternName(
 }
 
 function getPatternDependencies(
-		document: vscode.TextDocument | JsonastTypes.JsonObject): { pos: JsonastTypes.Position; value: string; }[] {
+	document: vscode.TextDocument | JsonastTypes.JsonObject): { pos: JsonastTypes.Position; value: string; }[] {
 	let ast: JsonastTypes.JsonObject;
 	if ((document as vscode.TextDocument).uri) {
 		ast = parseJson<JsonastTypes.JsonObject>((document as vscode.TextDocument).getText());
@@ -250,7 +250,7 @@ class PatternManifestCompletionItemProvider implements vscode.CompletionItemProv
 	}
 
 	public provideCompletionItems(document: vscode.TextDocument, position: vscode.Position,
-			token: vscode.CancellationToken): vscode.CompletionItem[] | Promise<vscode.CompletionItem[]> {
+		token: vscode.CancellationToken): vscode.CompletionItem[] | Promise<vscode.CompletionItem[]> {
 		if (token.isCancellationRequested) {
 			return [];
 		}
@@ -263,11 +263,11 @@ class PatternManifestCompletionItemProvider implements vscode.CompletionItemProv
 			}),
 			this.completionForPatternManifest(document, position)
 		])
-		.then(winner => winner);
+			.then(winner => winner);
 	}
 
 	private completionForPatternManifest(doc: vscode.TextDocument,
-			position: vscode.Position): Promise<vscode.CompletionItem[]> {
+		position: vscode.Position): Promise<vscode.CompletionItem[]> {
 		return this.patternplateAdapter.getPatternIds()
 			.then(patterns => {
 				const range = this.getDependencyRange(doc, position);
@@ -302,7 +302,7 @@ class PatternManifestCompletionItemProvider implements vscode.CompletionItemProv
 class PatternManifestLinkProvider implements vscode.DocumentLinkProvider {
 
 	public provideDocumentLinks(document: vscode.TextDocument,
-			token: vscode.CancellationToken): vscode.DocumentLink[] | Promise<vscode.DocumentLink[]> {
+		token: vscode.CancellationToken): vscode.DocumentLink[] | Promise<vscode.DocumentLink[]> {
 		return getPatternDependencies(document)
 			.map(dependency => {
 				const uriParts = document.uri.path.match('(.*/patterns/).*');
@@ -318,7 +318,7 @@ class PatternManifestLinkProvider implements vscode.DocumentLinkProvider {
 class PatternDocumentationHoverProvider implements vscode.HoverProvider {
 
 	public provideHover(document: vscode.TextDocument, position: vscode.Position,
-			token: vscode.CancellationToken): vscode.Hover | Promise<vscode.Hover> {
+		token: vscode.CancellationToken): vscode.Hover | Promise<vscode.Hover> {
 		const dependency = getPatternDependencies(document)
 			.find(dependency => this.isInsideRange(document.offsetAt(position), dependency.pos));
 		if (!dependency) {
@@ -350,8 +350,8 @@ class PatternReferenceProvider implements vscode.ReferenceProvider {
 	}
 
 	public provideReferences(document: vscode.TextDocument, position: vscode.Position,
-			context: vscode.ReferenceContext,
-				token: vscode.CancellationToken): vscode.Location[] | Promise<vscode.Location[]> {
+		context: vscode.ReferenceContext,
+		token: vscode.CancellationToken): vscode.Location[] | Promise<vscode.Location[]> {
 		// Fixme: this is quite ugly...
 		const ast = parseJson<JsonastTypes.JsonObject>(document.getText());
 		let name = getPatternName(ast);
